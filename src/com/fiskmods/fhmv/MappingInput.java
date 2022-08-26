@@ -16,6 +16,8 @@ public class MappingInput
     public Map<String, MappingClass> accessors = new HashMap<>();
     public Map<String, Object> mappings = new HashMap<>();
 
+    private Map<String, String[]> headers = new HashMap<>();
+
     public List<?> list(String key)
     {
         return (List<?>) mappings.computeIfAbsent(key, k -> new ArrayList<>());
@@ -35,6 +37,11 @@ public class MappingInput
         }
 
         return accessorKeys.get(cl);
+    }
+
+    public String[] getHeaders(String key, String... names)
+    {
+        return headers.getOrDefault(key, names);
     }
 
     public static class MappingClass

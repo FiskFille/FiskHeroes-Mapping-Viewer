@@ -180,7 +180,7 @@ public class AccessorPane extends JSplitPane implements ListSelectionListener
             else if (m.inherited)
             {
                 c.setFont(ITALIC);
-                c.setForeground(isSelected ? Color.LIGHT_GRAY : Color.GRAY);
+                c.setForeground(isSelected ? new Color(0xCCCCCC) : new Color(0x666666));
             }
             else
             {

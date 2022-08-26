@@ -72,7 +72,7 @@ public class TypePane extends JSplitPane implements ListSelectionListener
             if (map.values().stream().anyMatch(t -> Map.class.isAssignableFrom(t.getClass())))
             {
                 TableMap table = new TableMap();
-                JSplitPane pane = createTable(table, false, "Key", "Values");
+                JSplitPane pane = createTable(table, false, MappingViewer.input.getHeaders(sel, "Key", "Values"));
                 map.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(t -> table.addRow(t.getKey(), ((Map<String, String>) t.getValue())));
                 panel.add(pane);
             }
@@ -80,14 +80,14 @@ public class TypePane extends JSplitPane implements ListSelectionListener
             else if (map.values().stream().anyMatch(t -> List.class.isAssignableFrom(t.getClass())))
             {
                 Table table = new Table();
-                JSplitPane pane = createTable(table, false, "Key", "Values");
+                JSplitPane pane = createTable(table, false, MappingViewer.input.getHeaders(sel, "Key", "Values"));
                 map.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(t -> table.addRow(t.getKey(), ((List<String>) t.getValue()).stream().collect(Collectors.joining("\n"))));
                 panel.add(pane);
             }
             else // Map of objects
             {
                 Table table = new Table();
-                JSplitPane pane = createTable(table, false, "Key", "Value");
+                JSplitPane pane = createTable(table, false, MappingViewer.input.getHeaders(sel, "Key", "Value"));
                 map.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(t -> table.addRow(t.getKey(), String.valueOf(t.getValue())));
                 panel.add(pane);
             }
