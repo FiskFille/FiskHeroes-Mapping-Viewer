@@ -10,7 +10,6 @@ import java.awt.event.MouseMotionListener;
 import javax.swing.AbstractAction;
 import javax.swing.BoxLayout;
 import javax.swing.JTextPane;
-import javax.swing.table.DefaultTableModel;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Element;
 import javax.swing.text.Style;
@@ -127,7 +126,7 @@ public class FormattedTextPane extends JTextPane
             Style s = doc.addStyle(null, doc.getStyle("regular"));
             StyleConstants.setUnderline(s, true);
             StyleConstants.setBold(s, true);
-            
+
             if (type)
             {
                 StyleConstants.setForeground(s, Color.BLUE);
@@ -136,7 +135,7 @@ public class FormattedTextPane extends JTextPane
             {
                 StyleConstants.setItalic(s, true);
             }
-            
+
             s.addAttribute("link", new LinkListener(r));
             doc.insertString(doc.getLength(), url, s);
         }
@@ -146,25 +145,20 @@ public class FormattedTextPane extends JTextPane
         }
     }
 
-    public static DefaultTableModel paramModel = new DefaultTableModel(new Object[0][0], new String[] {"Pkg name", "SRG name", "Obf name"})
+    public void addColor(int color)
     {
-        private static final long serialVersionUID = 1L;
-
-        private boolean[] columnEditables = {false, false, false};
-        private Class<?>[] columnTypes = {String.class, String.class, String.class};
-
-        @Override
-        public Class<?> getColumnClass(int columnIndex)
+        try
         {
-            return columnTypes[columnIndex];
+            Style s = doc.addStyle(null, doc.getStyle("regular"));
+            StyleConstants.setBold(s, true);
+            StyleConstants.setBackground(s, new Color(color));
+            doc.insertString(doc.getLength(), "    ", s);
         }
-
-        @Override
-        public boolean isCellEditable(int row, int column)
+        catch (BadLocationException e)
         {
-            return columnEditables[column];
+            e.printStackTrace();
         }
-    };
+    }
 
     private class LinkListener extends AbstractAction
     {

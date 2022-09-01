@@ -154,6 +154,8 @@ public class MappingGui extends JFrame
             return "Double";
         case "float":
             return "Float";
+        case "float[]":
+            return "Array (Float)";
         case "long":
             return "Long";
         case "short":
@@ -181,8 +183,8 @@ public class MappingGui extends JFrame
         project.setPreferredSize(new Dimension(179, 80));
 
         List<String> list = new ArrayList<>();
-        list.add("JS Accessors");
         list.addAll(MappingViewer.input.mappings.keySet());
+        list.addAll(MappingViewer.input.accessorGroups.keySet());
         list.sort(null);
 
         project.setLeftComponent(createList("Mappings", classList = new JList<>(list.toArray(new String[0]))));

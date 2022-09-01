@@ -16,7 +16,9 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -34,7 +36,7 @@ import com.google.gson.JsonSyntaxException;
 
 public class MappingViewer
 {
-    public static final String NAME = "FiskHeroes Mapping Viewer 1.0";
+    public static final String NAME = "FiskHeroes Mapping Viewer 1.1";
     public static final String BASE_URL = "https://raw.githubusercontent.com/FiskFille/Superheroes/master/mappings";
 
     private static JFrame selector;
@@ -42,7 +44,7 @@ public class MappingViewer
     public static MappingInput input = new MappingInput();
 
     @SuppressWarnings("unchecked")
-    public static void main(String[] args) throws Exception
+    public static void main(String[] args)
     {
         try
         {
@@ -52,9 +54,40 @@ public class MappingViewer
         {
         }
 
-        Map<String, List<String>> map = new Gson().fromJson(new InputStreamReader(new URL(BASE_URL + "/index.json").openStream()), Map.class);
+        Map<String, List<String>> map = new HashMap<>();
+        Thread t = new Thread(() ->
+        {
+            try
+            {
+                map.putAll(new Gson().fromJson(new InputStreamReader(new URL(BASE_URL + "/index.json").openStream()), Map.class));
+            }
+            catch (JsonSyntaxException | JsonIOException | IOException e)
+            {
+                e.printStackTrace();
+            }
+        });
+        t.start();
+
+        try
+        {
+            t.join(10000L);
+        }
+        catch (InterruptedException e)
+        {
+            e.printStackTrace();
+        }
+
         List<String> list = map.get("versions");
-        list.sort(Comparator.reverseOrder());
+
+        if (list == null)
+        {
+            list = new ArrayList<>();
+        }
+        else
+        {
+            list.sort(Comparator.reverseOrder());
+        }
+
         openSelectionDialog(list);
     }
 
@@ -140,6 +173,7 @@ public class MappingViewer
         try
         {
             input = new Gson().fromJson(new FileReader(file), MappingInput.class);
+            input.init();
         }
         catch (JsonSyntaxException | JsonIOException | FileNotFoundException e)
         {
@@ -152,6 +186,7 @@ public class MappingViewer
         try
         {
             input = new Gson().fromJson(new InputStreamReader(new URL(BASE_URL + "/" + version + ".json").openStream()), MappingInput.class);
+            input.init();
         }
         catch (JsonSyntaxException | JsonIOException | IOException e)
         {

@@ -5,6 +5,7 @@ import static com.fiskmods.fhmv.MappingGui.*;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.util.Map;
 
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListCellRenderer;
@@ -15,25 +16,34 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
 import com.fiskmods.fhmv.MappingInput.MappingClass;
+import com.fiskmods.fhmv.MappingInput.MappingField;
 import com.fiskmods.fhmv.MappingInput.MappingMethod;
 import com.fiskmods.fhmv.MappingInput.MappingParameter;
+import com.fiskmods.fhmv.TypePane.AccessorView;
 
 public class AccessorPane extends JSplitPane implements ListSelectionListener
 {
     private static final long serialVersionUID = 1L;
 
+    private final Map<String, MappingClass> accessorMap;
+    private final TypePane parentPane;
     private final JList<String> accessorList;
 
     private final FormattedTextPane infobox;
     private final JSplitPane window;
+    private final JSplitPane members;
 
     private final DefaultListModel<MappingMethod> methods = new DefaultListModel<>();
     private final JList<MappingMethod> methodList;
     private final JSplitPane methodPane;
 
+    private final DefaultListModel<MappingField> fields = new DefaultListModel<>();
+    private final JList<MappingField> fieldList;
+    private final JSplitPane fieldPane;
+
     private final Table paramTable;
 
-    public AccessorPane(JList<String> list)
+    public AccessorPane(JList<String> list, TypePane parent, Map<String, MappingClass> map, String group, double memberSplit)
     {
         super(JSplitPane.HORIZONTAL_SPLIT);
         setBorder(null);
@@ -43,7 +53,8 @@ public class AccessorPane extends JSplitPane implements ListSelectionListener
         setMinimumSize(new Dimension(179, 80));
         setPreferredSize(new Dimension(179, 80));
         (accessorList = list).addListSelectionListener(this);
-
+        accessorMap = map;
+        parentPane = parent;
         infobox = new FormattedTextPane();
         infobox.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
@@ -54,14 +65,29 @@ public class AccessorPane extends JSplitPane implements ListSelectionListener
         window.setContinuousLayout(true);
         window.setMinimumSize(new Dimension(80, 179));
         window.setPreferredSize(new Dimension(80, 179));
-
         window.setTopComponent(withScroll(infobox, false));
         window.setBottomComponent(createTable(paramTable = new Table(), true, "Type", "Parameter", "Description"));
 
+        members = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
+        members.setBorder(null);
+        members.setDividerSize(3);
+        members.setResizeWeight(memberSplit);
+        members.setContinuousLayout(true);
+        members.setMinimumSize(new Dimension(200, 80));
+        members.setPreferredSize(new Dimension(200, 80));
+
         methodList = new JList<>(methods);
         methodList.setCellRenderer(new ListMethodRenderer());
-        methodPane = createList("Functions", methodList);
         methodList.addListSelectionListener(this::methodValueChanged);
+        methodPane = createList("Functions", methodList);
+
+        fieldList = new JList<>(fields);
+        fieldList.setCellRenderer(new ListFieldRenderer());
+        fieldList.addListSelectionListener(this::fieldValueChanged);
+        fieldPane = createList("Variables", fieldList);
+
+        members.setTopComponent(methodPane);
+        members.setBottomComponent(fieldPane);
 
         setLeftComponent(EMPTY);
         setRightComponent(EMPTY);
@@ -69,14 +95,29 @@ public class AccessorPane extends JSplitPane implements ListSelectionListener
 
     private void gotoAccessor(String link)
     {
-        for (int i = 0; i < accessorList.getModel().getSize(); ++i)
+        String group = MappingViewer.input.getGroup(link);
+        AccessorView view = parentPane.accessors.get(group);
+
+        if (view != null)
         {
-            String s = accessorList.getModel().getElementAt(i);
+            gotoAccessor(view.windowPane, link);
+            parentPane.setDividerSize(3);
+            parentPane.setLeftComponent(view.listPane);
+            parentPane.setRightComponent(view.windowPane);
+        }
+    }
+
+    private static void gotoAccessor(AccessorPane pane, String link)
+    {
+        for (int i = 0; i < pane.accessorList.getModel().getSize(); ++i)
+        {
+            String s = pane.accessorList.getModel().getElementAt(i);
 
             if (s.equals(link))
             {
-                accessorList.clearSelection();
-                accessorList.addSelectionInterval(i, i);
+                pane.accessorList.clearSelection();
+                pane.accessorList.addSelectionInterval(i, i);
+                pane.paramTable.clear();
                 return;
             }
         }
@@ -90,7 +131,8 @@ public class AccessorPane extends JSplitPane implements ListSelectionListener
 
             if (m != null)
             {
-                MappingClass cl = MappingViewer.input.accessors.get(accessorList.getSelectedValue());
+                MappingClass cl = accessorMap.get(accessorList.getSelectedValue());
+                fieldList.clearSelection();
                 infobox.clear();
 
                 if (m.deprecated)
@@ -101,7 +143,7 @@ public class AccessorPane extends JSplitPane implements ListSelectionListener
 
                 if (m.parent != cl)
                 {
-                    String name = MappingViewer.input.getAccessorName(m.parent);
+                    String name = MappingViewer.input.accessorKeys.get(m.parent);
                     infobox.addText("Inherited from ", "italic");
                     infobox.addLink(name, () -> gotoAccessor(name), false);
                     infobox.addText("\n\n", "regular");
@@ -141,22 +183,89 @@ public class AccessorPane extends JSplitPane implements ListSelectionListener
         }
     }
 
+    private void fieldValueChanged(ListSelectionEvent e)
+    {
+        if (!e.getValueIsAdjusting())
+        {
+            MappingField f = fieldList.getSelectedValue();
+
+            if (f != null)
+            {
+                methodList.clearSelection();
+                infobox.clear();
+
+                if (f.deprecated)
+                {
+                    infobox.addText("Deprecated\n", "bold-it");
+                    infobox.addText("Deprecated fields are marked as unstable. They are kept in for the sake of back-compatibility, but may be removed in future releases.\n\n", "italic");
+                }
+
+                infobox.addText(f.name, f.deprecated ? "header-depr" : "header");
+
+                if (f.assignable)
+                {
+                    infobox.addText("\nAssignable", "regular");
+                }
+
+                if (f.desc != null)
+                {
+                    infobox.addText("\n\n" + f.desc, "regular");
+                }
+
+                infobox.addText("\n", "regular");
+
+                if (f.type != null)
+                {
+                    infobox.addText("\nType: ", "italic");
+
+                    if (MappingViewer.input.accessors.containsKey(f.type))
+                    {
+                        infobox.addLink(f.type, () -> gotoAccessor(f.type), true);
+                    }
+                    else
+                    {
+                        infobox.addText(primitiveName(f.type), "bold");
+                    }
+                }
+
+                if (f.defVal != null)
+                {
+                    infobox.addText("\nDefault Value: ", "italic");
+                    String s = f.defVal;
+
+                    if (f.defVal.startsWith("0x"))
+                    {
+                        infobox.addColor(Integer.decode(f.defVal));
+                        s = " " + s;
+                    }
+
+                    infobox.addText(s, "bold");
+                }
+
+                paramTable.clear();
+            }
+        }
+    }
+
     @Override
     public void valueChanged(ListSelectionEvent e)
     {
         if (!e.getValueIsAdjusting())
         {
             String sel = accessorList.getSelectedValue();
-            MappingClass cl = MappingViewer.input.accessors.get(sel);
+            MappingClass cl = accessorMap.get(sel);
 
-            setLeftComponent(methodPane);
+            setLeftComponent(members);
             setRightComponent(window);
+            paramTable.clear();
             infobox.clear();
             methods.clear();
+            fields.clear();
 
             if (cl != null)
             {
                 cl.getAllMethods().forEach(methods::addElement);
+                cl.fields.forEach(fields::addElement);
             }
         }
     }
@@ -164,6 +273,9 @@ public class AccessorPane extends JSplitPane implements ListSelectionListener
     private static class ListMethodRenderer extends DefaultListCellRenderer
     { 
         private static final long serialVersionUID = 1L;
+
+        private static final Color INHERITED = new Color(0x666666);
+        private static final Color INHERITED_SEL = new Color(0xCCCCCC);
 
         @Override
         public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus)
@@ -180,7 +292,32 @@ public class AccessorPane extends JSplitPane implements ListSelectionListener
             else if (m.inherited)
             {
                 c.setFont(ITALIC);
-                c.setForeground(isSelected ? new Color(0xCCCCCC) : new Color(0x666666));
+                c.setForeground(isSelected ? INHERITED_SEL : INHERITED);
+            }
+            else
+            {
+                c.setFont(FONT);
+            }
+
+            return c;
+        }
+    }
+
+    private static class ListFieldRenderer extends DefaultListCellRenderer
+    { 
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus)
+        {
+            Component c = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+            MappingField f = (MappingField) value;
+            setText(f.name);
+
+            if (f.deprecated)
+            {
+                c.setFont(DEPR);
+                c.setForeground(Color.LIGHT_GRAY);
             }
             else
             {

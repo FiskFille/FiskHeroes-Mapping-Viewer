@@ -3,6 +3,7 @@ package com.fiskmods.fhmv;
 import static com.fiskmods.fhmv.MappingGui.*;
 
 import java.awt.Dimension;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -17,15 +18,14 @@ import javax.swing.JTextPane;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 
+import com.fiskmods.fhmv.MappingInput.MappingClass;
+
 public class TypePane extends JSplitPane implements ListSelectionListener
 {
     private static final long serialVersionUID = 1L;
 
     private final JList<String> typeList;
-    private final JList<String> accessorList;
-
-    private final AccessorPane accessorWindowPane;
-    private final JSplitPane accessorListPane;
+    public final Map<String, AccessorView> accessors = new HashMap<>();
 
     public TypePane(JList<String> list)
     {
@@ -37,10 +37,12 @@ public class TypePane extends JSplitPane implements ListSelectionListener
         setMinimumSize(new Dimension(179, 80));
         setPreferredSize(new Dimension(179, 80));
         (typeList = list).addListSelectionListener(this);
-
-        String[] array = MappingViewer.input.accessors.keySet().stream().sorted().toArray(String[]::new);
-        accessorListPane = createList("Classes", accessorList = new JList<>(array));
-        accessorWindowPane = new AccessorPane(accessorList);
+        
+        for (Map.Entry<String, Map<String, MappingClass>> e : MappingViewer.input.accessorGroups.entrySet())
+        {
+            String[] array = e.getValue().keySet().stream().sorted().toArray(String[]::new);
+            accessors.put(e.getKey(), new AccessorView(this, array, e.getValue(), e.getKey(), e.getKey().equals("JS Accessors") ? 1 : 0.5));
+        }
 
         setLeftComponent(EMPTY);
         setRightComponent(EMPTY);
@@ -103,12 +105,13 @@ public class TypePane extends JSplitPane implements ListSelectionListener
         if (!e.getValueIsAdjusting())
         {
             String sel = typeList.getSelectedValue();
+            AccessorView view = accessors.get(sel);
 
-            if ("JS Accessors".equals(sel))
+            if (view != null)
             {
                 setDividerSize(3);
-                setLeftComponent(accessorListPane);
-                setRightComponent(accessorWindowPane);
+                setLeftComponent(view.listPane);
+                setRightComponent(view.windowPane);
             }
             else
             {
@@ -116,6 +119,19 @@ public class TypePane extends JSplitPane implements ListSelectionListener
                 setLeftComponent(generateWindow(sel));
                 setRightComponent(EMPTY);
             }
+        }
+    }
+    
+    public static class AccessorView
+    {
+        public final JList<String> list;
+        public final AccessorPane windowPane;
+        public final JSplitPane listPane;
+        
+        public AccessorView(TypePane parent, String[] array, Map<String, MappingClass> map, String group, double memberSplit)
+        {
+            listPane = createList("Types", list = new JList<>(array));
+            windowPane = new AccessorPane(list, parent, map, group, memberSplit);
         }
     }
 }

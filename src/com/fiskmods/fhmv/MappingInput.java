@@ -11,12 +11,38 @@ public class MappingInput
 {
     public int format = 0;
 
-    private Map<MappingClass, String> accessorKeys;
-
     public Map<String, MappingClass> accessors = new HashMap<>();
     public Map<String, Object> mappings = new HashMap<>();
-
     private Map<String, String[]> headers = new HashMap<>();
+
+    public Map<MappingClass, String> accessorKeys = new HashMap<>();
+    public Map<String, Map<String, MappingClass>> accessorGroups = new HashMap<>();
+    private Map<String, String> accessorGroupLookup = new HashMap<>();
+
+    public void init()
+    {
+        Map<String, MappingClass> map = new HashMap<>();
+        
+        for (Map.Entry<String, MappingClass> e : accessors.entrySet())
+        {
+            String s = e.getKey();
+            String group = "JS Accessors";
+
+            if (s.contains("|"))
+            {
+                String[] astring = s.split("\\|");
+                group = astring[0];
+                s = astring[1];
+            }
+
+            map.put(s, e.getValue());
+            accessorGroupLookup.put(s, group);
+            accessorGroups.computeIfAbsent(group, k -> new HashMap<>()).put(s, e.getValue());
+        }
+        
+        accessors = map;
+        accessors.forEach((k, v) -> accessorKeys.put(v, k));
+    }
 
     public List<?> list(String key)
     {
@@ -28,25 +54,20 @@ public class MappingInput
         return (Map<?, ?>) mappings.computeIfAbsent(key, k -> new HashMap<>());
     }
 
-    public String getAccessorName(MappingClass cl)
-    {
-        if (accessorKeys == null)
-        {
-            accessorKeys = new HashMap<>();
-            accessors.forEach((k, v) -> accessorKeys.put(v, k));
-        }
-
-        return accessorKeys.get(cl);
-    }
-
     public String[] getHeaders(String key, String... names)
     {
         return headers.getOrDefault(key, names);
+    }
+    
+    public String getGroup(String key)
+    {
+        return accessorGroupLookup.getOrDefault(key, "JS Accessors");
     }
 
     public static class MappingClass
     {
         private List<MappingMethod> methods = new ArrayList<>();
+        public List<MappingField> fields = new ArrayList<>();
         private String parent;
 
         private List<MappingMethod> allMethods;
@@ -79,6 +100,11 @@ public class MappingInput
         }
     }
 
+    public static abstract class MappingMember
+    {
+
+    }
+
     public static class MappingMethod
     {
         public MappingClass parent;
@@ -93,7 +119,7 @@ public class MappingInput
 
         private String fullName;
 
-        public MappingMethod(MappingMethod m, MappingClass cl, boolean b)
+        private MappingMethod(MappingMethod m, MappingClass cl, boolean b)
         {
             parent = cl;
             params = m.params;
@@ -120,6 +146,18 @@ public class MappingInput
 
             return fullName = name + "(" + j + ")";
         }
+    }
+
+    public class MappingField
+    {
+        public String name;
+        public String type;
+        public String desc;
+
+        public boolean assignable;
+        public boolean deprecated;
+
+        public String defVal;
     }
 
     public static class MappingParameter
